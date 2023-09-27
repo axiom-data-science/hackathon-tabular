@@ -1,0 +1,10 @@
+name: moxy
+channels:
+  - conda-forge
+dependencies:
+  - python
+  - numpy
+  - xarray
+  - fastapi
+  - uvicorn
+  - netCDF4
