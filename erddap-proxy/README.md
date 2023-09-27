@@ -54,6 +54,24 @@ Requests (with query parameters)
 /erddap/tabledap/cwwcNDBCMet.nccsv?station,longitude,latitude&distinct()
 ```
 
+# Serving a static ERDDAP "remote dataset"
+
+This caches responses from the "remote" ERDDAP for a few relevant requests
+(version and nccsv/nccsvMetadata) and serves them as a fake/static
+ERDDAP remote dataset which is proxied by the proxying ERDDAP.
+
+After starting up the compose stack, run the following to cache
+the proxied ERDDAP responses and restart the nginx-static and
+erddap-proxy container to reload the static dataset.
+
+```
+./get_request_responses.sh
+docker compose restart nginx-static erddap-proxy
+```
+
+Then the static dataset should be available for access on the proxying ERDDAP at
+`/erddap/tabledap/cwwcNDBCMet-static.html`
+
 # References
 
 ERDDAP's `EDDTableFromERDDAP` which does various version checks
