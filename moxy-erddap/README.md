@@ -15,7 +15,7 @@ uvicorn app:app
 or if you're running non-locally and need to serve on all interfaces:
 
 ```
-unvicorn app:app --host 0.0.0.0
+uvicorn app:app --host 0.0.0.0
 ```
 
 Bootstrapping
