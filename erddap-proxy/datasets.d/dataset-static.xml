@@ -1,0 +1,6 @@
+<dataset type="EDDTableFromErddap" datasetID="cwwcNDBCMet-static">
+  <sourceUrl>http://nginx-static/erddap/tabledap/cwwcNDBCMet</sourceUrl>
+  <reloadEveryNMinutes>10</reloadEveryNMinutes>
+  <subscribeToRemoteErddapDataset>false</subscribeToRemoteErddapDataset>
+  <redirect>false</redirect>
+</dataset>

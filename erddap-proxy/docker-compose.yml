@@ -18,7 +18,17 @@ services:
     ports:
       - 8080:80
     volumes:
-      - ./nginx-server.conf:/etc/nginx/conf.d/default.conf
+      - ./nginx-server-proxy.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      erddap:
+        condition: service_healthy
+  nginx-static:
+    image: nginx:1.25
+    volumes:
+      - ./nginx-server-static.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./responses:/data:ro
+    ports:
+      - 8081:80
     depends_on:
       erddap:
         condition: service_healthy
@@ -33,6 +43,7 @@ services:
       - ./datasets.d:/datasets.d:ro
     depends_on:
       - nginx
+      - nginx-static
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/erddap/tabledap/cwwcNDBCMet-remote.html"]
       interval: 5s

@@ -7,6 +7,7 @@ while read path; do
 
   echo $path
   curl http://erddap-proxy:8080${path} &> /dev/null
+  #curl -v http://erddap-proxy:8080${path} > /dev/null
 done <<-EOF
 #html dataset UI
 /erddap/tabledap/cwwcNDBCMet-remote.html
