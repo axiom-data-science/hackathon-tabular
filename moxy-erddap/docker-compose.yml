@@ -11,6 +11,7 @@ services:
       - 8911:8080
     volumes:
       - ./datasets.d:/datasets.d:ro
+      - ./datasets:/datasets
     environment:
       ERDDAP_baseUrl: http://estuaries03.axiomptk:8911
       ERDDAP_baseHttpsUrl: https://estuaries03.axiomptk:8911
