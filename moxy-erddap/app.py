@@ -151,9 +151,9 @@ async def get_nccsv(dataset_id, request: Request):
         fields = list(ds.variables)
     metadata_header = _get_nccsv_metadata(ds)
     if fields:
-        csv_body = fields2frame(ds, fields).iloc[:10].to_csv(index=False)
+        csv_body = fields2frame(ds, fields).to_csv(index=False)
     else:
-        csv_body = ds.drop_dims('timeseries').to_pandas().iloc[:10].to_csv(index=False)
+        csv_body = ds.drop_dims('timeseries').to_pandas().to_csv(index=False)
     body = metadata_header + csv_body
     return body
 
