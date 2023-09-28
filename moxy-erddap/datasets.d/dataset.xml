@@ -1,6 +1,0 @@
-<dataset type="EDDTableFromErddap" datasetID="example">
-  <sourceUrl>http://moxy-erddap:8000/erddap/tabledap/example</sourceUrl>
-  <reloadEveryNMinutes>10</reloadEveryNMinutes>
-  <subscribeToRemoteErddapDataset>false</subscribeToRemoteErddapDataset>
-  <redirect>false</redirect>
-</dataset>

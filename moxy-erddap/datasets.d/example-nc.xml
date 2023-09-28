@@ -95,6 +95,14 @@ Downloaded from NOAA National Weather Service (NWS) at
         <att name="testOutOfDate">now-2days</att>
     </addAttributes>
     <dataVariable>
+        <sourceName>=stationasdf</sourceName>
+        <destinationName>station</destinationName>
+        <dataType>String</dataType>
+        <addAttributes>
+          <att name="cf_role">timeseries_id</att>
+        </addAttributes>
+    </dataVariable>
+    <dataVariable>
         <sourceName>air_pressure_at_mean_sea_level</sourceName>
         <destinationName>air_pressure_at_mean_sea_level</destinationName>
         <dataType>double</dataType>

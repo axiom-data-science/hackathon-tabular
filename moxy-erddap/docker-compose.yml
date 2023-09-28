@@ -5,6 +5,19 @@ services:
       - ./datasets:/app/datasets:ro
     ports:
       - 8000:8000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/datasets"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+  generate-datasets:
+    build: ./generate-datasets
+    volumes:
+      - ./datasets.d/moxy:/datasets.d
+    command: -o /datasets.d -m http://moxy-erddap:8000
+    depends_on:
+      moxy-erddap:
+        condition: service_healthy
   erddap:
     image: axiom/docker-erddap:2.23-jdk17-openjdk
     ports:
@@ -16,7 +29,7 @@ services:
       ERDDAP_baseUrl: http://estuaries03.axiomptk:8911
       ERDDAP_baseHttpsUrl: https://estuaries03.axiomptk:8911
     depends_on:
-      - moxy-erddap
+      - generate-datasets
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/erddap/index.html"]
       interval: 5s

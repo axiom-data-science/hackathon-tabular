@@ -4,7 +4,7 @@ from urllib.parse import urlparse, unquote
 from typing import Tuple, List
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import RedirectResponse
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from pathlib import Path
 from typing import Annotated, NamedTuple
 import cf_xarray
@@ -80,6 +80,11 @@ async def redirect():
     """Default page will redirect the user to the api docs."""
     response = RedirectResponse(url="/docs")
     return response
+
+
+@app.get("/datasets", response_class=JSONResponse)
+async def get_datasets() -> JSONResponse:
+    return sorted([p.stem for p in Path('datasets').glob('*.nc') if p.is_file()])
 
 
 @app.get("/erddap/version", response_class=PlainTextResponse)
