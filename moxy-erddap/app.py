@@ -107,7 +107,13 @@ def _get_nccsv_metadata(ds: xr.Dataset) -> str:
         else:
             raise ValueError(f'Unsupported dtype: {varname} {ds[varname].dtype}')
         for key, value in ds[varname].attrs.items():
+            if varname == "time" and key in ("units", "time_origin"):
+                continue
             map_value_to_csv(varname, key, value, buf, writer)
+        if varname == "time":
+            map_value_to_csv(varname, "units", "yyyy-MM-dd'T'HH:mm:ssZ", buf, writer)
+            map_value_to_csv(varname, "time_origin", "01-JAN-1970 00:00:00", buf, writer)
+
     buf.write('\n*END_METADATA*\n')
     buf.seek(0)
     return buf.read()
@@ -132,9 +138,8 @@ async def get_nccsv(dataset_id, request: Request):
         parts = urlparse(url)
         decoded_qs = unquote(parts.query)
         query_args = decoded_qs.split('&')
-        for query in query_args:
-            if ',' in query:
-                fields = query.split(',')
+        fields = query_args[0].split(',')
+        for query in query_args[1:]:
             if any([i in query for i in '=><']):
                 constraints.append(parse_constraint(query))
 
@@ -195,8 +200,12 @@ def fields2frame(ds, fields):
     arrlen = maxlen
 
     for field, arr in frame.items():
-        dtype = arr.dtype
-        long_arr = np.empty(arrlen, dtype=dtype)
-        long_arr[:] = arr[0]
-        frame[field] = long_arr
+        if len(arr) == 1:
+            dtype = arr.dtype
+            long_arr = np.empty(arrlen, dtype=dtype)
+            long_arr[:] = arr[0]
+            frame[field] = long_arr
+        if field == "time":
+            long_arr = np.datetime_as_string(arr.astype('M8[s]'), timezone='UTC')
+            frame[field] = long_arr
     return pd.DataFrame(frame)
