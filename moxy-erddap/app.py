@@ -128,7 +128,6 @@ async def get_nccsv_metadata(dataset_id) -> CsvResponse:
 @app.get("/erddap/tabledap/{dataset_id}.nccsv", response_class=CsvResponse)
 async def get_nccsv(dataset_id, request: Request):
     ds = _open_dataset_nc(dataset_id)
-    metadata_header = _get_nccsv_metadata(ds)
     params = request.query_params
     url = str(request.url)
     constraints = []
@@ -150,6 +149,7 @@ async def get_nccsv(dataset_id, request: Request):
         ds = ds[fields]
     else:
         fields = list(ds.variables)
+    metadata_header = _get_nccsv_metadata(ds)
     if fields:
         csv_body = fields2frame(ds, fields).iloc[:10].to_csv(index=False)
     else:
