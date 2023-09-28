@@ -1,0 +1,23 @@
+services:
+  moxy-erddap:
+    build: .
+    volumes:
+      - ./datasets:/app/datasets:ro
+    ports:
+      - 8000:8000
+  erddap:
+    image: axiom/docker-erddap:2.23-jdk17-openjdk
+    ports:
+      - 8911:8080
+    volumes:
+      - ./datasets.d:/datasets.d:ro
+    environment:
+      ERDDAP_baseUrl: http://estuaries03.axiomptk:8911
+      ERDDAP_baseHttpsUrl: https://estuaries03.axiomptk:8911
+    depends_on:
+      - moxy-erddap
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/erddap/index.html"]
+      interval: 5s
+      timeout: 2s
+      retries: 100

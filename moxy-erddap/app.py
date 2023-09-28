@@ -64,16 +64,26 @@ async def redirect():
     return response
 
 
-@app.get("/erddap/tabledap/{dataset_id}.nccsvMetadata", response_class=CsvResponse)
-async def get_nccsv_metadata(dataset_id) -> CsvResponse:
+@app.get("/erddap/version", response_class=PlainTextResponse)
+async def get_erddap_version() -> PlainTextResponse:
+    return "ERDDAP_version=2.23"
+
+
+def _open_dataset_nc(dataset_id: str) -> xr.Dataset:
     pth = Path(f'datasets/{dataset_id}.nc')
     if not pth.exists():
         raise HTTPException(status_code=404, detail="No such dataset")
     print(pth)
-    ds = xr.open_dataset(str(pth))
+    return xr.open_dataset(str(pth))
+
+
+def _get_nccsv_metadata(ds: xr.Dataset) -> str:
     buf = io.StringIO()
 
     writer = csv.writer(buf)
+
+    #add required Conventions global attribute
+    map_value_to_csv(None, 'Conventions', 'COARDS, CF-1.6, ACDD-1.3, NCCSV-1.2', buf, writer)
 
     for key, value in ds.attrs.items():
         map_value_to_csv(None, key, value, buf, writer)
@@ -92,32 +102,17 @@ async def get_nccsv_metadata(dataset_id) -> CsvResponse:
     return buf.read()
 
 
+@app.get("/erddap/tabledap/{dataset_id}.nccsvMetadata", response_class=CsvResponse)
+async def get_nccsv_metadata(dataset_id) -> CsvResponse:
+    ds = _open_dataset_nc(dataset_id)
+    return _get_nccsv_metadata(ds)
+
+
 @app.get("/erddap/tabledap/{dataset_id}.nccsv", response_class=CsvResponse)
 async def get_nccsv(dataset_id, request: Request):
-    pth = Path(f'datasets/{dataset_id}.nc')
-    if not pth.exists():
-        raise HTTPException(status_code=404, detail="No such dataset")
-    print(pth)
-    ds = xr.open_dataset(str(pth))
-    buf = io.StringIO()
+    ds = _open_dataset_nc(dataset_id)
+    metadata_header = _get_nccsv_metadata(ds)
 
-    writer = csv.writer(buf)
-
-    for key, value in ds.attrs.items():
-        map_value_to_csv(None, key, value, buf, writer)
-
-    for varname in ds.variables:
-        for dtype, erddap_dtype in dtype_to_erddap.items():
-            if np.issubdtype(ds[varname].dtype, dtype):
-                map_value_to_csv(varname, '*DATA_TYPE*', erddap_dtype, buf, writer)
-                break
-        else:
-            raise ValueError(f'Unsupported dtype: {varname} {ds[varname].dtype}')
-        for key, value in ds[varname].attrs.items():
-            map_value_to_csv(varname, key, value, buf, writer)
-    buf.write('\n*END_METADATA*\n')
-    buf.seek(0)
-    metadata_header =  buf.read()
     csv_body = ds.drop_dims('timeseries').to_pandas().iloc[:10].to_csv()
     body = metadata_header + csv_body
     return body
