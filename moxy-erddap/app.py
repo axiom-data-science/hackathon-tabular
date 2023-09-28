@@ -1,15 +1,26 @@
 from fastapi import Depends, FastAPI, HTTPException, Request
+import pandas as pd
+from urllib.parse import urlparse, unquote
+from typing import Tuple
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import RedirectResponse
 from fastapi.responses import PlainTextResponse
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, NamedTuple
+import time
 import io
 import csv
 import re
 import os
 import xarray as xr
 import numpy as np
+
+
+
+class Constraint(NamedTuple):
+    key: str
+    operator: str
+    value: str
 
 
 app = FastAPI()
@@ -112,7 +123,80 @@ async def get_nccsv_metadata(dataset_id) -> CsvResponse:
 async def get_nccsv(dataset_id, request: Request):
     ds = _open_dataset_nc(dataset_id)
     metadata_header = _get_nccsv_metadata(ds)
+    params = request.query_params
+    url = str(request.url)
+    constraints = []
+    fields = None
 
-    csv_body = ds.drop_dims('timeseries').to_pandas().iloc[:10].to_csv()
+    if '?' in url:
+        parts = urlparse(url)
+        decoded_qs = unquote(parts.query)
+        query_args = decoded_qs.split('&')
+        for query in query_args:
+            if ',' in query:
+                fields = query.split(',')
+            if any([i in query for i in '=><']):
+                constraints.append(parse_constraint(query))
+
+    if fields:
+        for field in fields:
+            if field not in ds.variables:
+                raise HTTPException(status_code=400, detail=f"Invalid variable: {field}")
+        ds = ds[fields]
+    else:
+        fields = list(ds.variables)
+    if fields:
+        csv_body = fields2frame(ds, fields).iloc[:10].to_csv(index=False)
+    else:
+        csv_body = ds.drop_dims('timeseries').to_pandas().iloc[:10].to_csv(index=False)
     body = metadata_header + csv_body
     return body
+
+
+@app.get("/erddap/version", response_class=PlainTextResponse)
+async def get_erddap_version():
+    return "ERDDAP_version=2.23\n"
+
+
+@app.get("/erddap/files/{dataset_id}/.csv", response_class=CsvResponse)
+async def get_files(dataset_id):
+    timestamp = int(time.time()*1000)
+    body = (
+        'Name,Last modified,Size,Description\n'
+        f'{dataset_id}.nc,1695844880992,670238'
+    )
+    return body
+
+
+def parse_constraint(constraint: str) -> Constraint:
+    operators = [
+        '>=',
+        '>',
+        '<=',
+        '<',
+        '=',
+    ]
+    for operator in operators:
+        if operator in constraint:
+            key, value = constraint.split(operator)
+            return Constraint(key, operator, value)
+    else:
+        raise ValueError('Not a parseable constraint')
+
+
+def fields2frame(ds, fields):
+    frame = {}
+    for field in fields:
+        frame[field] = ds[field].to_numpy()
+
+    maxlen = 1
+    for dim in ds.dims:
+        maxlen = max(maxlen, ds.dims[dim])
+    arrlen = maxlen
+
+    for field, arr in frame.items():
+        dtype = arr.dtype
+        long_arr = np.empty(arrlen, dtype=dtype)
+        long_arr[:] = arr[0]
+        frame[field] = long_arr
+    return pd.DataFrame(frame)
