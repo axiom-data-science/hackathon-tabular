@@ -53,20 +53,26 @@ dtype_to_erddap = {
 }
 
 
-def map_value_to_csv(nckey, key, value, buf, writer):
-    if nckey is None:
-        nckey = '*GLOBAL*'
+def erddapcsv_dtype(value) -> str:
     if isinstance(value, str):
         if '\n' in value:
             value = value.replace('\n', '\\n')
         if re.match(r'\d+', value):
-            buf.write(f'{nckey},{key},"{value}"\n')
-        else:
-            writer.writerow([nckey,key, value])
-    if isinstance(value, (int, np.integer)):
-        buf.write(f'{nckey},{key},{value}i\n')
-    if isinstance(value, (float, np.floating)):
-        buf.write(f'{nckey},{key},{value}d\n')
+            value = f'"{value}"'
+        return value
+    elif isinstance(value, (int, np.integer)):
+        return f'{value}i'
+    elif isinstance(value, (float, np.floating)):
+        return f'{value}d'
+    elif isinstance(value, tuple):
+        return ','.join([erddapcsv_dtype(i) for i in value])
+
+
+def map_value_to_csv(nckey, key, value, buf, writer):
+    if nckey is None:
+        nckey = '*GLOBAL*'
+    value = erddapcsv_dtype(value)
+    buf.write(f'{nckey},{key},{value}\n')
 
 
 @app.get("/")
@@ -111,9 +117,18 @@ def _get_nccsv_metadata(ds: xr.Dataset) -> str:
             if varname == "time" and key in ("units", "time_origin"):
                 continue
             map_value_to_csv(varname, key, value, buf, writer)
+
         if varname == "time":
             map_value_to_csv(varname, "units", "yyyy-MM-dd'T'HH:mm:ssZ", buf, writer)
             map_value_to_csv(varname, "time_origin", "01-JAN-1970 00:00:00", buf, writer)
+            values = ds[varname].to_numpy().astype('M8[s]')
+            actual_max = np.datetime_as_string(values.max(), timezone="UTC")
+            actual_min = np.datetime_as_string(values.min(), timezone="UTC")
+            buf.write(f"time,actual_range,{actual_min}\\n{actual_max}\n")
+        else:
+            actual_min = ds[varname].min().item()
+            actual_max = ds[varname].min().item()
+            map_value_to_csv(varname, "actual_range", (actual_min, actual_max), buf, writer)
 
     buf.write('\n*END_METADATA*\n')
     buf.seek(0)
@@ -219,12 +234,11 @@ def fields2frame(ds, fields):
 def reorder_fields(ds, fields) -> List[str]:
     coords = []
     rest = []
-    coord_order = ("time", "longitude", "latitude")
+    coord_order = ("time", "longitude", "latitude", "depth", "altitude")
     for coord in coord_order:
-        if coord in ds.cf.coords:
-            name = ds.cf.coords[coord].name
-            if name in fields:
-                coords.append(name)
+        if coord in ds.cf.standard_names:
+            for varname in ds.cf.standard_names[coord]:
+                coords.append(varname)
     for varname in fields:
         if varname not in coords:
             rest.append(varname)
