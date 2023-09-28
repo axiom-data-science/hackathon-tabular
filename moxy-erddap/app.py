@@ -1,12 +1,13 @@
 from fastapi import Depends, FastAPI, HTTPException, Request
 import pandas as pd
 from urllib.parse import urlparse, unquote
-from typing import Tuple
+from typing import Tuple, List
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import RedirectResponse
 from fastapi.responses import PlainTextResponse
 from pathlib import Path
 from typing import Annotated, NamedTuple
+import cf_xarray
 import time
 import io
 import csv
@@ -122,6 +123,8 @@ def _get_nccsv_metadata(ds: xr.Dataset) -> str:
 @app.get("/erddap/tabledap/{dataset_id}.nccsvMetadata", response_class=CsvResponse)
 async def get_nccsv_metadata(dataset_id) -> CsvResponse:
     ds = _open_dataset_nc(dataset_id)
+    fields = reorder_fields(ds, list(ds.variables))
+    ds = ds[fields]
     return _get_nccsv_metadata(ds)
 
 
@@ -146,9 +149,11 @@ async def get_nccsv(dataset_id, request: Request):
         for field in fields:
             if field not in ds.variables:
                 raise HTTPException(status_code=400, detail=f"Invalid variable: {field}")
+
         ds = ds[fields]
     else:
         fields = list(ds.variables)
+        fields = reorder_fields(ds, fields)
     metadata_header = _get_nccsv_metadata(ds)
     if fields:
         csv_body = fields2frame(ds, fields).to_csv(index=False)
@@ -209,3 +214,20 @@ def fields2frame(ds, fields):
             long_arr = np.datetime_as_string(arr.astype('M8[s]'), timezone='UTC')
             frame[field] = long_arr
     return pd.DataFrame(frame)
+
+
+def reorder_fields(ds, fields) -> List[str]:
+    coords = []
+    rest = []
+    coord_order = ("time", "longitude", "latitude")
+    for coord in coord_order:
+        if coord in ds.cf.coords:
+            name = ds.cf.coords[coord].name
+            if name in fields:
+                coords.append(name)
+    for varname in fields:
+        if varname not in coords:
+            rest.append(varname)
+    return coords + rest
+
+    
