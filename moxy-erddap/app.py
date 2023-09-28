@@ -64,6 +64,11 @@ async def redirect():
     return response
 
 
+@app.get("/erddap/version", response_class=PlainTextResponse)
+async def get_erddap_version() -> PlainTextResponse:
+    return "ERDDAP_version=2.23"
+
+
 @app.get("/erddap/tabledap/{dataset_id}.nccsvMetadata", response_class=CsvResponse)
 async def get_nccsv_metadata(dataset_id) -> CsvResponse:
     pth = Path(f'datasets/{dataset_id}.nc')
@@ -74,6 +79,9 @@ async def get_nccsv_metadata(dataset_id) -> CsvResponse:
     buf = io.StringIO()
 
     writer = csv.writer(buf)
+
+    #add required Conventions global attribute
+    map_value_to_csv(None, 'Conventions', 'COARDS, CF-1.6, ACDD-1.3, NCCSV-1.2', buf, writer)
 
     for key, value in ds.attrs.items():
         map_value_to_csv(None, key, value, buf, writer)
